@@ -1,0 +1,18 @@
+.accept-node {
+    padding: 10px;
+    border: 2px solid #28a745;
+    border-radius: 50%;
+    background-color: #d4edda;
+    text-align: center;
+    font-weight: bold;
+  }
+  
+  .default-node {
+    padding: 10px;
+    border: 2px solid #007bff; 
+    border-radius: 50%;
+    background-color: #cce5ff;
+    text-align: center;
+    font-weight: bold;
+  }
+  
