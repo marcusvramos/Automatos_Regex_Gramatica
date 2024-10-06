@@ -1,6 +1,5 @@
-// src/components/SelfLoopEdge.tsx
 import React from 'react';
-import { getBezierPath, EdgeProps } from 'react-flow-renderer';
+import { EdgeProps } from 'react-flow-renderer';
 
 const SelfLoopEdge: React.FC<EdgeProps> = ({
   id,
@@ -8,20 +7,28 @@ const SelfLoopEdge: React.FC<EdgeProps> = ({
   sourceY,
   targetX,
   targetY,
-  sourcePosition,
-  targetPosition,
   style = {},
   markerEnd,
   label,
 }) => {
-  const [edgePath] = getBezierPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-  });
+  // Define dimensões do quadrado com cantos arredondados
+  const width = 30;
+  const height = 30;
+  const cornerRadius = 10;
+
+  // Ajusta a posição inicial (iniciando na parte superior do nó) e o caminho para terminar no canto direito do nó alvo
+  const loopPath = `
+    M ${sourceX},${sourceY} 
+    v -${height / 2} 
+    h ${width - cornerRadius} 
+    a ${cornerRadius},${cornerRadius} 0 0 1 ${cornerRadius},${cornerRadius} 
+    v ${height - 2 * cornerRadius} 
+    a ${cornerRadius},${cornerRadius} 0 0 1 ${-cornerRadius},${cornerRadius} 
+    h -${width - 2 * cornerRadius} 
+    a ${cornerRadius},${cornerRadius} 0 0 1 ${-cornerRadius},${-cornerRadius} 
+    v -${(height - 2 * cornerRadius) / 2} 
+    L ${targetX},${targetY}
+  `;
 
   return (
     <>
@@ -29,7 +36,7 @@ const SelfLoopEdge: React.FC<EdgeProps> = ({
         id={id}
         style={style}
         className="react-flow__edge-path"
-        d={edgePath}
+        d={loopPath}
         markerEnd={markerEnd}
       />
       {label && (

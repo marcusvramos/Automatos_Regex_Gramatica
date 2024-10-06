@@ -9,8 +9,17 @@ import ReactFlow, {
   useEdgesState,
 } from "react-flow-renderer";
 import { Automaton, State, Transition } from "../../types/automaton";
-import { Button, Card, ListGroup, Row, Col, Badge, Modal, Form } from "react-bootstrap";
-import "react-flow-renderer/dist/style.css"; 
+import {
+  Button,
+  Card,
+  ListGroup,
+  Row,
+  Col,
+  Badge,
+  Modal,
+  Form,
+} from "react-bootstrap";
+import "react-flow-renderer/dist/style.css";
 import "react-flow-renderer/dist/theme-default.css";
 import "./automaton-editor.css";
 
@@ -43,6 +52,9 @@ const AutomatonEditor: React.FC = () => {
     },
   ];
 
+  const [inputString, setInputString] = useState<string>(""); // Sequência de entrada
+  const [isAccepted, setIsAccepted] = useState<boolean | null>(null); // Resultado de aceitação
+
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<RFEdge[]>([]);
   const [automaton, setAutomaton] = useState<Automaton>({
@@ -68,40 +80,125 @@ const AutomatonEditor: React.FC = () => {
   const [currentStateId, setCurrentStateId] = useState<string | null>(null);
   const [newLabel, setNewLabel] = useState<string>("");
 
-  // Função para adicionar transições
+  const handleCheckInput = (e: React.FormEvent) => {
+    e.preventDefault();
+    const inputSymbols = inputString.split("");
+
+    const initialState = automaton.states.find((state) => state.isStart);
+
+    if (!initialState) {
+      alert("Nenhum estado inicial definido.");
+      return;
+    }
+
+    // Função recursiva para processar as transições em um NFA
+    const processInput = (
+      currentStates: string[],
+      remainingInput: string[]
+    ): boolean => {
+
+      if (remainingInput.length === 0) {
+        return currentStates.some((stateId) => {
+          const currentState = automaton.states.find(
+            (state) => state.id === stateId
+          );
+          return currentState?.isAccept || false;
+        });
+      }
+
+      const [currentSymbol, ...restInput] = remainingInput;
+
+      const nextStates: string[] = [];
+
+      currentStates.forEach((currentStateId) => {
+        const possibleTransitions = automaton.transitions.filter(
+          (t) => t.from === currentStateId && t.input === currentSymbol
+        );
+
+        possibleTransitions.forEach((transition) => {
+          nextStates.push(transition.to);
+        });
+      });
+
+      if (nextStates.length === 0) {
+        return false;
+      }
+
+      return processInput(nextStates, restInput);
+    };
+
+    const accepted = processInput([initialState.id], inputSymbols);
+    setIsAccepted(accepted);
+  };
+
   const handleAddTransition = (from: string, to: string, input: string) => {
-    const symbols = input.split(',').map(sym => sym.trim()).filter(sym => sym.length > 0);
+    const symbols = input
+      .split(",")
+      .map((sym) => sym.trim())
+      .filter((sym) => sym.length > 0);
 
-    const newTransitions: Transition[] = symbols.map((sym, index) => ({
-      id: `t_${from}_${to}_${sym}_${Date.now()}_${index}`, // ID único
-      from,
-      to,
-      input: sym,
-    }));
+    setAutomaton((prevAutomaton) => {
+      const existingEdge = edges.find(
+        (edge) => edge.source === from && edge.target === to
+      );
 
-    // Atualizar o estado do autômato
-    setAutomaton((prevAutomaton) => ({
-      ...prevAutomaton,
-      transitions: [...prevAutomaton.transitions, ...newTransitions],
-    }));
+      if (existingEdge) {
+        // Se já houver uma transição entre os mesmos estados, concatenar o label
+        const updatedEdges = edges.map((edge) => {
+          if (edge.source === from && edge.target === to) {
+            return {
+              ...edge,
+              label: `${edge.label}, ${symbols.join(", ")}`.replace(
+                /, ,/g,
+                ","
+              ), 
+            };
+          }
+          return edge;
+        });
 
-    // Adicionar as transições no React Flow
-    setEdges((eds) => [
-      ...eds,
-      ...newTransitions.map((transition) => ({
-        id: transition.id,
-        source: transition.from,
-        target: transition.to,
-        label: transition.input,
-        animated: !automaton.isDeterministic,
-        type: transition.from === transition.to ? 'selfLoop' : 'smoothstep',
-        style: { stroke: '#000' },
-        labelStyle: { fill: '#000', fontWeight: 700 },
-        labelBgPadding: [8, 4] as [number, number],
-        labelBgBorderRadius: 4,
-        labelBgStyle: { fill: '#fff', opacity: 0.7 },
-      })),
-    ]);
+        setEdges(updatedEdges);
+      } else {
+        // Criar novas transições caso ainda não exista uma entre os estados
+        const newTransitions: Transition[] = symbols.map((sym, index) => ({
+          id: `t_${from}_${to}_${sym}_${Date.now()}_${index}`, // ID único
+          from,
+          to,
+          input: sym,
+        }));
+
+        // Adicionar as novas transições no autômato
+        setEdges((eds) => [
+          ...eds,
+          ...newTransitions.map((transition) => ({
+            id: transition.id,
+            source: transition.from,
+            target: transition.to,
+            label: transition.input,
+            animated: !automaton.isDeterministic,
+            type: transition.from === transition.to ? "selfLoop" : "smoothstep",
+            style: { stroke: "#000" },
+            labelStyle: { fill: "#000", fontWeight: 700 },
+            labelBgPadding: [8, 4] as [number, number],
+            labelBgBorderRadius: 4,
+            labelBgStyle: { fill: "#fff", opacity: 0.7 },
+          })),
+        ]);
+      }
+
+      return {
+        ...prevAutomaton,
+        transitions: [
+          ...prevAutomaton.transitions,
+          ...symbols.map((sym, index) => ({
+            id: `t_${from}_${to}_${sym}_${Date.now()}_${index}`,
+            from,
+            to,
+            input: sym,
+          })),
+        ],
+      };
+    });
   };
 
   // Função para lidar com a submissão do formulário de transição
@@ -132,7 +229,7 @@ const AutomatonEditor: React.FC = () => {
           id: newState.id,
           data: { label: newState.label, isAccept: newState.isAccept },
           position: { x: 250, y: 75 * newStateNumber },
-          type: 'stateNode',
+          type: "stateNode",
         },
       ]);
 
@@ -154,7 +251,9 @@ const AutomatonEditor: React.FC = () => {
     }));
 
     setNodes((nds) => nds.filter((node) => node.id !== stateId));
-    setEdges((eds) => eds.filter((edge) => edge.source !== stateId && edge.target !== stateId));
+    setEdges((eds) =>
+      eds.filter((edge) => edge.source !== stateId && edge.target !== stateId)
+    );
   };
 
   // Função para alternar estado de aceitação
@@ -171,7 +270,9 @@ const AutomatonEditor: React.FC = () => {
                 ...node,
                 data: {
                   ...node.data,
-                  isAccept: updatedStates.find((s) => s.id === stateId)?.isAccept || false,
+                  isAccept:
+                    updatedStates.find((s) => s.id === stateId)?.isAccept ||
+                    false,
                 },
               }
             : node
@@ -186,13 +287,18 @@ const AutomatonEditor: React.FC = () => {
   };
 
   // Função para lidar com o clique nos nós
-  const onNodeClickHandler = (event: React.MouseEvent, node: Node<CustomNodeData>) => {
-    const action = window.prompt("Digite 'r' para remover, 'a' para alternar aceitação ou 'n' para renomear:");
-    if (action === 'r') {
+  const onNodeClickHandler = (
+    event: React.MouseEvent,
+    node: Node<CustomNodeData>
+  ) => {
+    const action = window.prompt(
+      "Digite 'r' para remover, 'a' para alternar aceitação ou 'n' para renomear:"
+    );
+    if (action === "r") {
       handleRemoveState(node.id);
-    } else if (action === 'a') {
+    } else if (action === "a") {
       toggleAcceptState(node.id);
-    } else if (action === 'n') {
+    } else if (action === "n") {
       handleRenameState(node.id);
     }
   };
@@ -200,7 +306,7 @@ const AutomatonEditor: React.FC = () => {
   // Função para renomear estados
   const handleRenameState = (stateId: string) => {
     setCurrentStateId(stateId);
-    const node = nodes.find(n => n.id === stateId);
+    const node = nodes.find((n) => n.id === stateId);
     if (node) {
       setNewLabel(node.data.label);
       setShowRenameModal(true);
@@ -242,11 +348,16 @@ const AutomatonEditor: React.FC = () => {
     if (!connection.source || !connection.target) return;
 
     // Gerar um ID único para a nova transição
-    const transitionId = `t_${connection.source}_${connection.target}_${Date.now()}`;
+    const transitionId = `t_${connection.source}_${
+      connection.target
+    }_${Date.now()}`;
 
     // Criar uma transição com um símbolo padrão (por exemplo, 'ε' ou outro)
     // Aqui, você pode solicitar ao usuário que insira o símbolo ou definir um padrão
-    const symbol = window.prompt("Digite o símbolo de entrada para essa transição:", "a");
+    const symbol = window.prompt(
+      "Digite o símbolo de entrada para essa transição:",
+      "a"
+    );
 
     if (symbol === null || symbol.trim() === "") {
       // Usuário cancelou ou não inseriu um símbolo válido
@@ -275,12 +386,13 @@ const AutomatonEditor: React.FC = () => {
         target: newTransition.to,
         label: newTransition.input,
         animated: !automaton.isDeterministic,
-        type: newTransition.from === newTransition.to ? 'selfLoop' : 'smoothstep',
-        style: { stroke: '#000' },
-        labelStyle: { fill: '#000', fontWeight: 700 },
+        type:
+          newTransition.from === newTransition.to ? "selfLoop" : "smoothstep",
+        style: { stroke: "#000" },
+        labelStyle: { fill: "#000", fontWeight: 700 },
         labelBgPadding: [8, 4],
         labelBgBorderRadius: 4,
-        labelBgStyle: { fill: '#fff', opacity: 0.7 },
+        labelBgStyle: { fill: "#fff", opacity: 0.7 },
       },
     ]);
   };
@@ -290,13 +402,18 @@ const AutomatonEditor: React.FC = () => {
     .filter((state) => state.isStart)
     .map((state) => ({
       id: `start_${state.id}`,
-      type: 'startNode',
-      position: { 
-        x: (nodes.find(n => n.id === state.id)?.position.x || 250) - 40, // Ajuste o deslocamento conforme necessário
-        y: nodes.find(n => n.id === state.id)?.position.y || 75 
+      type: "startNode",
+      position: {
+        x: (nodes.find((n) => n.id === state.id)?.position.x || 250) - 40, // Ajuste o deslocamento conforme necessário
+        y: nodes.find((n) => n.id === state.id)?.position.y || 75,
       },
       data: {},
-      style: { width: 30, height: 20, border: 'none', background: 'transparent' }, // Transparente além do SVG
+      style: {
+        width: 30,
+        height: 20,
+        border: "none",
+        background: "transparent",
+      }, // Transparente além do SVG
     }));
 
   const startEdges: RFEdge[] = automaton.states
@@ -305,10 +422,10 @@ const AutomatonEditor: React.FC = () => {
       id: `start_edge_${state.id}`,
       source: `start_${state.id}`,
       target: state.id,
-      type: 'smoothstep',
-      arrowHeadType: 'arrowclosed',
+      type: "smoothstep",
+      arrowHeadType: "arrowclosed",
       animated: false,
-      style: { stroke: '#555' },
+      style: { stroke: "#555" },
     }));
 
   // Combinar Nodos e Edges
@@ -329,21 +446,48 @@ const AutomatonEditor: React.FC = () => {
             <h4>Estados</h4>
             <ListGroup>
               {automaton.states.map((state) => (
-                <ListGroup.Item key={state.id} className="d-flex justify-content-between align-items-center">
+                <ListGroup.Item
+                  key={state.id}
+                  className="d-flex justify-content-between align-items-center"
+                >
                   <div>
                     <strong>{state.label}</strong>
-                    {state.isStart && <Badge bg="success" className="ms-2">Início</Badge>}
-                    {state.isAccept && <Badge bg="warning" text="dark" className="ms-2">Aceitação</Badge>}
+                    {state.isStart && (
+                      <Badge bg="success" className="ms-2">
+                        Início
+                      </Badge>
+                    )}
+                    {state.isAccept && (
+                      <Badge bg="warning" text="dark" className="ms-2">
+                        Aceitação
+                      </Badge>
+                    )}
                   </div>
                   <div>
-                    <Button variant="outline-secondary" size="sm" onClick={() => handleRenameState(state.id)}>
+                    <Button
+                      variant="outline-secondary"
+                      size="sm"
+                      onClick={() => handleRenameState(state.id)}
+                    >
                       Renomear
                     </Button>
-                    <Button variant="outline-danger" size="sm" className="ms-2" onClick={() => handleRemoveState(state.id)}>
+                    <Button
+                      variant="outline-danger"
+                      size="sm"
+                      className="ms-2"
+                      onClick={() => handleRemoveState(state.id)}
+                    >
                       Remover
                     </Button>
-                    <Button variant="outline-info" size="sm" className="ms-2" onClick={() => toggleAcceptState(state.id)}>
-                      {state.isAccept ? 'Desmarcar Aceitação' : 'Marcar Aceitação'}
+                    <Button
+                      variant="outline-info"
+                      size="sm"
+                      className="ms-2"
+                      onClick={() => toggleAcceptState(state.id)}
+                    >
+                      {state.isAccept
+                        ? "Desmarcar Aceitação"
+                        : "Marcar Aceitação"}
                     </Button>
                   </div>
                 </ListGroup.Item>
@@ -455,6 +599,36 @@ const AutomatonEditor: React.FC = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+      <Row className="mt-4">
+        <Col>
+          <h4>Verificar Entrada</h4>
+          <Form onSubmit={handleCheckInput}>
+            <Form.Group controlId="checkInput" className="mb-2">
+              <Form.Label>Sequência de Entrada:</Form.Label>
+              <Form.Control
+                type="text"
+                value={inputString}
+                onChange={(e) => setInputString(e.target.value)}
+                placeholder="Digite a sequência de entrada, ex: a,b,c"
+                required
+              />
+            </Form.Group>
+            <Button variant="primary" type="submit">
+              Verificar
+            </Button>
+          </Form>
+
+          {isAccepted !== null && (
+            <div className="mt-3">
+              {isAccepted ? (
+                <Badge bg="success">Entrada Aceita</Badge>
+              ) : (
+                <Badge bg="danger">Entrada Rejeitada</Badge>
+              )}
+            </div>
+          )}
+        </Col>
+      </Row>
     </Card>
   );
 };
