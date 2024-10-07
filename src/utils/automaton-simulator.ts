@@ -1,54 +1,55 @@
-import { Automaton } from "../types/automaton";
+import { Automaton, Transition } from "../types/automaton";
 
 export const simulateAutomaton = (
   automaton: Automaton,
   input: string
 ): boolean => {
-  if (automaton.isDeterministic) {
-    return simulateAFD(automaton, input);
-  } else {
-    return simulateAFND(automaton, input);
-  }
-};
+  const { states, transitions } = automaton;
 
-const simulateAFD = (automaton: Automaton, input: string): boolean => {
-  const startState = automaton.states.find((s) => s.isStart);
-  if (!startState) return false;
+  const startStates = states.filter((s) => s.isStart).map((s) => s.id);
 
-  let currentState = startState.id;
+  let currentStates = epsilonClosure(new Set(startStates), transitions);
 
   for (const symbol of input) {
-    const state = currentState;
-    const transition = automaton.transitions.find(
-      (t) => t.from === state && t.input === symbol
-    );
-    if (!transition) return false;
-    currentState = transition.to;
+    const nextStates = new Set<string>();
+
+    for (const stateId of currentStates) {
+      transitions
+        .filter((t) => t.from === stateId && t.input === symbol)
+        .forEach((t) => {
+          nextStates.add(t.to);
+        });
+    }
+
+    if (nextStates.size === 0) {
+      return false; // Não há transições possíveis
+    }
+
+    currentStates = epsilonClosure(nextStates, transitions);
   }
 
-  const finalState = automaton.states.find((s) => s.id === currentState);
-  return finalState ? finalState.isAccept : false;
-};
-
-const simulateAFND = (automaton: Automaton, input: string): boolean => {
-  const startStates = automaton.states
-    .filter((s) => s.isStart)
-    .map((s) => s.id);
-  let currentStates = new Set<string>(startStates);
-
-  for (const symbol of input) {
-    const newStates = new Set<string>();
-    currentStates.forEach((state) => {
-      automaton.transitions
-        .filter((t) => t.from === state && t.input === symbol)
-        .forEach((t) => newStates.add(t.to));
-    });
-    currentStates = newStates;
-    if (currentStates.size === 0) break;
-  }
-
+  // Verificar se algum dos estados atuais é de aceitação
   return Array.from(currentStates).some((stateId) => {
-    const state = automaton.states.find((s) => s.id === stateId);
+    const state = states.find((s) => s.id === stateId);
     return state?.isAccept;
   });
+};
+
+const epsilonClosure = (states: Set<string>, transitions: Transition[]): Set<string> => {
+  const closure = new Set(states);
+  const stack = [...states];
+
+  while (stack.length > 0) {
+    const stateId = stack.pop()!;
+    transitions
+      .filter((t) => t.from === stateId && t.input === "ε")
+      .forEach((t) => {
+        if (!closure.has(t.to)) {
+          closure.add(t.to);
+          stack.push(t.to);
+        }
+      });
+  }
+
+  return closure;
 };

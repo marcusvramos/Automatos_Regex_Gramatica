@@ -1,3 +1,5 @@
+// src/App.tsx
+
 import React, { useState } from "react";
 import { Container, Tabs, Tab, Card } from "react-bootstrap";
 import { Automaton } from "./types/automaton";
@@ -9,12 +11,28 @@ import AutomatonEditor from "./components/automaton-editor/automaton-editor";
 import AutomatonSimulator from "./components/automator-simulator/automaton-simulator";
 import GrammarEditor from "./components/grammar-editor/grammar-editor";
 import { grammarToAutomaton } from "./utils/grammar-to-automaton";
-import { FaRegKeyboard, FaRegEdit, FaRegFileCode } from "react-icons/fa";
+import {
+  FaRegKeyboard,
+  FaRegEdit,
+  FaRegFileCode,
+} from "react-icons/fa";
 
 const App: React.FC = () => {
   const [regex, setRegex] = useState<string>("");
-  const [automaton, setAutomaton] = useState<Automaton | null>(null);
+  const [automaton, setAutomaton] = useState<Automaton>({
+    states: [
+      {
+        id: "state_1",
+        label: "q1",
+        isStart: true,
+        isAccept: false,
+      },
+    ],
+    transitions: [],
+    isDeterministic: true,
+  });
   const [grammar, setGrammar] = useState<Grammar | null>(null);
+  const [currentStates, setCurrentStates] = useState<Set<string>>(new Set());
 
   const handleGrammarSubmit = (grammar: Grammar) => {
     setGrammar(grammar);
@@ -52,13 +70,16 @@ const App: React.FC = () => {
             </span>
           }
         >
-          <Card className="p-3 mb-3">
-            <AutomatonEditor />
-          </Card>
+          <AutomatonEditor
+            currentStates={currentStates}
+            automaton={automaton}
+            setAutomaton={setAutomaton}
+          />
           {automaton && (
-            <Card className="p-3">
-              <AutomatonSimulator automaton={automaton} />
-            </Card>
+            <AutomatonSimulator
+              automaton={automaton}
+              setCurrentStates={setCurrentStates}
+            />
           )}
         </Tab>
         {/* Aba de Gramáticas Regulares */}
@@ -90,10 +111,20 @@ const App: React.FC = () => {
               <ul>
                 {grammar.productions.map((prod, index) => (
                   <li key={index}>
-                    {prod.head} → {prod.body.join(" ")}
+                    {prod.head} → {prod.body.join(" | ")}
                   </li>
                 ))}
               </ul>
+              {/* Mostrar o autômato resultante da gramática */}
+              {automaton && (
+                <div className="mt-4">
+                  <h4>Autômato Gerado:</h4>
+                  <AutomatonSimulator
+                    automaton={automaton}
+                    setCurrentStates={setCurrentStates}
+                  />
+                </div>
+              )}
             </Card>
           )}
         </Tab>

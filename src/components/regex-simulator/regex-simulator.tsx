@@ -11,14 +11,24 @@ const RegexSimulator: React.FC<RegexSimulatorProps> = ({ regex }) => {
   const [isMatch, setIsMatch] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const validateRegex = (regex: string): boolean => {
+    const allowedChars = /^[0-9a-zA-Z\\+\\|\\*\\.\\(\\)]*$/;
+    return allowedChars.test(regex);
+  };
+
   const handleCheck = () => {
+    if (!validateRegex(regex)) {
+      setError("Expressão Regular contém caracteres inválidos.");
+      setIsMatch(null);
+      return;
+    }
+
     try {
       const pattern = XRegExp(`^${regex}$`);
       setIsMatch(XRegExp.test(input, pattern));
-      setTimeout(() => {setError(null); setIsMatch(null) }, 3000);
       setError(null);
     } catch (error) {
-      setError('Expressão Regular inválida.');
+      setError('Expressão Regular inválida. Verifique a sintaxe.');
       setIsMatch(null);
     }
   };

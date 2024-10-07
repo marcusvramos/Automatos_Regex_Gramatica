@@ -1,78 +1,93 @@
+// src/components/automaton-simulator/AutomatonSimulator.tsx
+
 import React, { useState } from "react";
 import { Automaton } from "../../types/automaton";
 import { simulateAutomaton } from "../../utils/automaton-simulator";
-import { Form, Button, Alert, Card, Row, Col } from "react-bootstrap";
+import { Form, Button, Alert, Card } from "react-bootstrap";
 
 interface AutomatonSimulatorProps {
   automaton: Automaton;
+  setCurrentStates: React.Dispatch<React.SetStateAction<Set<string>>>;
 }
 
 const AutomatonSimulator: React.FC<AutomatonSimulatorProps> = ({
   automaton,
+  setCurrentStates,
 }) => {
-  const [input, setInput] = useState("");
-  const [result, setResult] = useState<boolean | null>(null);
-  const [currentStates, setCurrentStates] = useState<Set<string> | null>(null);
-  const [currentSymbolIndex, setCurrentSymbolIndex] = useState<number>(0);
+  const [inputWord, setInputWord] = useState<string>("");
   const [isStepByStep, setIsStepByStep] = useState<boolean>(false);
-  const [accepted, setAccepted] = useState<boolean | null>(null);
+  const [currentStates, setLocalCurrentStates] = useState<Set<string>>(
+    new Set()
+  );
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const [simulationComplete, setSimulationComplete] = useState<boolean>(false);
+  const [accepted, setAccepted] = useState<boolean>(false);
 
   const handleSimulate = () => {
     if (isStepByStep) {
-      // Reset states
-      setCurrentStates(
-        new Set(automaton.states.filter((s) => s.isStart).map((s) => s.id))
+      // Iniciar simulação passo a passo
+      const startStates = new Set(
+        automaton.states.filter((s) => s.isStart).map((s) => s.id)
       );
-      setCurrentSymbolIndex(0);
-      setAccepted(null);
-      setResult(null);
+      setLocalCurrentStates(startStates);
+      setCurrentStates(startStates);
+      setCurrentIndex(0);
+      setSimulationComplete(false);
+      setAccepted(false);
     } else {
-      const isAccepted = simulateAutomaton(automaton, input);
-      setResult(isAccepted);
-      setAccepted(null);
-      setCurrentStates(null);
-      setCurrentSymbolIndex(0);
+      // Simulação normal
+      const isAccepted = simulateAutomaton(automaton, inputWord);
+      setAccepted(isAccepted);
+      setSimulationComplete(true);
     }
   };
 
   const handleNextStep = () => {
-    if (currentStates === null || currentSymbolIndex >= input.length) {
-      // Finalizar simulação
-      setAccepted(
-        Array.from(currentStates || []).some((stateId) => {
-          const state = automaton.states.find((s) => s.id === stateId);
-          return state?.isAccept;
-        })
-      );
+    if (simulationComplete) return;
+
+    const symbol = inputWord[currentIndex];
+
+    if (!symbol) {
+      // Fim da palavra
+      const isAccepted = Array.from(currentStates).some((stateId) => {
+        const state = automaton.states.find((s) => s.id === stateId);
+        return state?.isAccept;
+      });
+      setAccepted(isAccepted);
+      setSimulationComplete(true);
       return;
     }
 
-    const symbol = input[currentSymbolIndex];
-    const newStates = new Set<string>();
+    // Encontrar transições possíveis
+    const nextStates = new Set<string>();
+    automaton.transitions.forEach((t) => {
+      if (currentStates.has(t.from) && t.input === symbol) {
+        nextStates.add(t.to);
+      }
+    });
 
-    automaton.transitions
-      .filter((t) => currentStates.has(t.from) && t.input === symbol)
-      .forEach((t) => newStates.add(t.to));
-
-    setCurrentStates(newStates);
-    setCurrentSymbolIndex((prev) => prev + 1);
-
-    if (newStates.size === 0) {
-      // Nenhuma transição possível
+    if (nextStates.size === 0) {
+      // Sem transições possíveis
       setAccepted(false);
+      setSimulationComplete(true);
+      return;
     }
+
+    setLocalCurrentStates(nextStates);
+    setCurrentStates(nextStates);
+    setCurrentIndex(currentIndex + 1);
   };
 
   return (
     <Card className="p-3">
       <h2>Simulador de Autômato</h2>
       <Form>
-        <Form.Group controlId="inputString">
+        <Form.Group controlId="inputWord">
           <Form.Label>Entrada:</Form.Label>
           <Form.Control
             type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
+            value={inputWord}
+            onChange={(e) => setInputWord(e.target.value)}
             placeholder="Ex: aba"
           />
         </Form.Group>
@@ -84,51 +99,41 @@ const AutomatonSimulator: React.FC<AutomatonSimulatorProps> = ({
           className="mt-2"
         />
         <Button variant="success" onClick={handleSimulate} className="mt-3">
-          {isStepByStep ? "Iniciar Simulação" : "Simular"}
+          Simular
         </Button>
       </Form>
-      {isStepByStep && currentStates !== null && (
+      {isStepByStep && (
         <div className="mt-4">
-          <h4>Passo {currentSymbolIndex}:</h4>
-          <Row>
-            <Col md={6}>
-              <p>
-                <strong>Símbolo Atual:</strong>{" "}
-                {currentSymbolIndex < input.length
-                  ? input[currentSymbolIndex]
-                  : "Nenhum"}
-              </p>
-              <p>
-                <strong>Estados Atuais:</strong>{" "}
-                {Array.from(currentStates)
-                  .map((id) => {
-                    const state = automaton.states.find((s) => s.id === id);
-                    return state ? state.label : id;
-                  })
-                  .join(", ")}
-              </p>
-            </Col>
-            <Col md={6} className="text-end">
-              {currentSymbolIndex < input.length && (
-                <Button variant="primary" onClick={handleNextStep}>
-                  Próximo Passo
-                </Button>
-              )}
-              {currentSymbolIndex >= input.length && accepted !== null && (
-                <Alert
-                  variant={accepted ? "success" : "danger"}
-                  className="mt-3"
-                >
-                  Resultado: {accepted ? "Aceita" : "Rejeita"}
-                </Alert>
-              )}
-            </Col>
-          </Row>
+          <h4>Passo {currentIndex + 1}</h4>
+          <p>
+            <strong>Símbolo Atual:</strong> {inputWord[currentIndex] || "N/A"}
+          </p>
+          <p>
+            <strong>Estados Atuais:</strong>{" "}
+            {Array.from(currentStates)
+              .map(
+                (id) => automaton.states.find((s) => s.id === id)?.label || id
+              )
+              .join(", ")}
+          </p>
+          {!simulationComplete && (
+            <Button variant="primary" onClick={handleNextStep}>
+              Próximo Passo
+            </Button>
+          )}
+          {simulationComplete && (
+            <Alert
+              variant={accepted ? "success" : "danger"}
+              className="mt-3"
+            >
+              Resultado: {accepted ? "Aceita" : "Rejeitada"}
+            </Alert>
+          )}
         </div>
       )}
-      {!isStepByStep && result !== null && (
-        <Alert variant={result ? "success" : "danger"} className="mt-3">
-          Resultado: {result ? "Aceita" : "Rejeita"}
+      {!isStepByStep && simulationComplete && (
+        <Alert variant={accepted ? "success" : "danger"} className="mt-3">
+          Resultado: {accepted ? "Aceita" : "Rejeitada"}
         </Alert>
       )}
     </Card>

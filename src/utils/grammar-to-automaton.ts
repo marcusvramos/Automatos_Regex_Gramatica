@@ -1,46 +1,69 @@
-// src/utils/grammarToAutomaton.ts
+import { Automaton, State, Transition } from "../types/automaton";
 import { Grammar } from "../types/grammar";
-import { Automaton, Transition, State } from "../types/automaton";
 
 export const grammarToAutomaton = (grammar: Grammar): Automaton => {
-  // Criação dos estados a partir dos não-terminais
-  const states: State[] = grammar.nonTerminals.map((nt) => ({
-    id: nt,
-    label: nt,
-    isStart: nt === grammar.startSymbol,
-    isAccept: false,
-  }));
+  const states: State[] = [];
+  const transitions: Transition[] = [];
 
-  // Adição do estado ACCEPT para lidar com terminais que não levam a outro não-terminal
-  states.push({
-    id: "ACCEPT",
-    label: "ACCEPT",
-    isStart: false,
-    isAccept: true,
+  // Criar estados para cada não-terminal
+  grammar.nonTerminals.forEach((nt) => {
+    states.push({
+      id: `state_${nt}`,
+      label: nt,
+      isStart: nt === grammar.startSymbol,
+      isAccept: false, // Marcaremos depois
+    });
   });
 
-  // Inicialização de um contador para gerar IDs únicos para transições
-  let transitionCounter = 0;
+  // Estado de aceitação
+  const acceptState: State = {
+    id: "accept_state",
+    label: "q_accept",
+    isStart: false,
+    isAccept: true,
+  };
+  states.push(acceptState);
 
-  // Criação das transições a partir das produções
-  const transitions: Transition[] = grammar.productions.flatMap((prod) =>
-    prod.body.map((symbol) => {
-      transitionCounter += 1;
-      return {
-        id: `t_${prod.head}_${symbol}_${transitionCounter}`, // ID único
-        from: prod.head,
-        to:
-          symbol.length === 1 && /[A-Z]/.test(symbol)
-            ? symbol
-            : "ACCEPT",
-        input: symbol.length === 1 ? symbol : "ε", // Substituído 'symbol' por 'input'
-      };
-    })
-  );
+  // Construir transições
+  grammar.productions.forEach((prod) => {
+    const fromStateId = `state_${prod.head}`;
+
+    prod.body.forEach((body) => {
+      const symbols = body.split(" "); // Supondo que os símbolos estejam separados por espaço
+
+      if (symbols.length === 2) {
+        const [terminal, nonTerminal] = symbols;
+        // Transição para outro estado
+        transitions.push({
+          id: `t_${fromStateId}_${nonTerminal}_${terminal}`,
+          from: fromStateId,
+          to: `state_${nonTerminal}`,
+          input: terminal,
+        });
+      } else if (symbols.length === 1) {
+        const [terminal] = symbols;
+        // Transição para estado de aceitação
+        transitions.push({
+          id: `t_${fromStateId}_accept_${terminal}`,
+          from: fromStateId,
+          to: acceptState.id,
+          input: terminal,
+        });
+      } else if (symbols.length === 0) {
+        // Produção com ε (vazio)
+        transitions.push({
+          id: `t_${fromStateId}_accept_ε`,
+          from: fromStateId,
+          to: acceptState.id,
+          input: "ε",
+        });
+      }
+    });
+  });
 
   return {
     states,
     transitions,
-    isDeterministic: true, // Por padrão, iniciamos com AFD
+    isDeterministic: false, // A conversão geralmente resulta em um AFND
   };
 };
