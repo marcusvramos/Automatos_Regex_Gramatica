@@ -172,12 +172,8 @@ const AutomatonEditor: React.FC<AutomatonEditorProps> = ({
           (edge) => edge.id === reverseEdgeId
         );
 
-        let curvature = 0;
         if (from !== to) {
           if (reverseEdgeExists) {
-            // Ajustar a curvatura para diferenciar as arestas
-            curvature = 0.4;
-            // Atualizar a aresta reversa para ter curvatura negativa
             const reverseEdgeIndex = updatedEdges.findIndex(
               (edge) => edge.id === reverseEdgeId
             );
@@ -186,8 +182,6 @@ const AutomatonEditor: React.FC<AutomatonEditorProps> = ({
               reverseEdge.type = "custom";
               updatedEdges[reverseEdgeIndex] = { ...reverseEdge };
             }
-          } else {
-            curvature = 0;
           }
         }
 
