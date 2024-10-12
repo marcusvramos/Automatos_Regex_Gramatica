@@ -1,5 +1,3 @@
-// src/components/automaton-editor/AutomatonEditor.tsx
-
 import React, { useState, useEffect } from "react";
 import ReactFlow, {
   Background,
