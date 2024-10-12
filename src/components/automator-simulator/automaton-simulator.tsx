@@ -1,14 +1,50 @@
-// src/components/automaton-simulator/AutomatonSimulator.tsx
-
 import React, { useState } from "react";
 import { Automaton } from "../../types/automaton";
-import { simulateAutomaton } from "../../utils/automaton-simulator";
 import { Form, Button, Alert, Card } from "react-bootstrap";
 
 interface AutomatonSimulatorProps {
   automaton: Automaton;
   setCurrentStates: React.Dispatch<React.SetStateAction<Set<string>>>;
 }
+
+// Função para simular o autômato
+const simulateAutomaton = (automaton: Automaton, input: string): boolean => {
+  // Inicializar os estados atuais com o estado inicial
+  let currentStates = new Set<string>();
+  automaton.states.forEach((state) => {
+    if (state.isStart) {
+      currentStates.add(state.id);
+    }
+  });
+
+  // Processar cada símbolo da entrada
+  for (let symbol of input) {
+    let nextStates = new Set<string>();
+
+    const currentStatesSnapshot = new Set(currentStates);
+    automaton.transitions.forEach((transition) => {
+      if (currentStatesSnapshot.has(transition.from) && transition.input === symbol) {
+        nextStates.add(transition.to);
+      }
+    });
+
+    currentStates = nextStates;
+
+    if (currentStates.size === 0) {
+      return false; // Não há transições possíveis
+    }
+  }
+
+  // Verificar se algum dos estados atuais é final
+  for (let stateId of currentStates) {
+    const state = automaton.states.find((s) => s.id === stateId);
+    if (state && state.isAccept) {
+      return true;
+    }
+  }
+
+  return false;
+};
 
 const AutomatonSimulator: React.FC<AutomatonSimulatorProps> = ({
   automaton,
@@ -24,16 +60,20 @@ const AutomatonSimulator: React.FC<AutomatonSimulatorProps> = ({
   const [accepted, setAccepted] = useState<boolean>(false);
 
   const handleSimulate = () => {
+    setSimulationComplete(false);
+    setAccepted(false);
+
     if (isStepByStep) {
       // Iniciar simulação passo a passo
-      const startStates = new Set(
-        automaton.states.filter((s) => s.isStart).map((s) => s.id)
-      );
+      const startStates = new Set<string>();
+      automaton.states.forEach((state) => {
+        if (state.isStart) {
+          startStates.add(state.id);
+        }
+      });
       setLocalCurrentStates(startStates);
       setCurrentStates(startStates);
       setCurrentIndex(0);
-      setSimulationComplete(false);
-      setAccepted(false);
     } else {
       // Simulação normal
       const isAccepted = simulateAutomaton(automaton, inputWord);
@@ -82,13 +122,13 @@ const AutomatonSimulator: React.FC<AutomatonSimulatorProps> = ({
     <Card className="p-3">
       <h2>Simulador de Autômato</h2>
       <Form>
-        <Form.Group controlId="inputWord">
+        <Form.Group controlId="inputWord" className="mb-3">
           <Form.Label>Entrada:</Form.Label>
           <Form.Control
             type="text"
             value={inputWord}
             onChange={(e) => setInputWord(e.target.value)}
-            placeholder="Ex: aba"
+            placeholder="Digite a cadeia para simular"
           />
         </Form.Group>
         <Form.Check

@@ -11,11 +11,11 @@ export const grammarToAutomaton = (grammar: Grammar): Automaton => {
       id: `state_${nt}`,
       label: nt,
       isStart: nt === grammar.startSymbol,
-      isAccept: false, // Marcaremos depois
+      isAccept: false,
     });
   });
 
-  // Estado de aceitação
+  // Criar um estado de aceitação adicional
   const acceptState: State = {
     id: "accept_state",
     label: "q_accept",
@@ -29,34 +29,35 @@ export const grammarToAutomaton = (grammar: Grammar): Automaton => {
     const fromStateId = `state_${prod.head}`;
 
     prod.body.forEach((body) => {
-      const symbols = body.split(" "); // Supondo que os símbolos estejam separados por espaço
-
-      if (symbols.length === 2) {
-        const [terminal, nonTerminal] = symbols;
-        // Transição para outro estado
-        transitions.push({
-          id: `t_${fromStateId}_${nonTerminal}_${terminal}`,
-          from: fromStateId,
-          to: `state_${nonTerminal}`,
-          input: terminal,
-        });
-      } else if (symbols.length === 1) {
-        const [terminal] = symbols;
-        // Transição para estado de aceitação
-        transitions.push({
-          id: `t_${fromStateId}_accept_${terminal}`,
-          from: fromStateId,
-          to: acceptState.id,
-          input: terminal,
-        });
-      } else if (symbols.length === 0) {
-        // Produção com ε (vazio)
-        transitions.push({
-          id: `t_${fromStateId}_accept_ε`,
-          from: fromStateId,
-          to: acceptState.id,
-          input: "ε",
-        });
+      if (body === "ε") {
+        // Produção com ε (vazio): marcar o estado como final
+        const state = states.find((s) => s.id === fromStateId);
+        if (state) {
+          state.isAccept = true;
+        }
+      } else {
+        if (body.length === 2) {
+          const terminal = body[0];
+          const nonTerminal = body[1];
+          // Transição para outro estado
+          transitions.push({
+            id: `t_${fromStateId}_${nonTerminal}_${terminal}`,
+            from: fromStateId,
+            to: `state_${nonTerminal}`,
+            input: terminal,
+          });
+        } else if (body.length === 1) {
+          const terminal = body[0];
+          // Transição para estado de aceitação
+          transitions.push({
+            id: `t_${fromStateId}_accept_${terminal}`,
+            from: fromStateId,
+            to: acceptState.id,
+            input: terminal,
+          });
+        } else {
+          console.warn(`Produção inválida: ${prod.head} → ${body}`);
+        }
       }
     });
   });
@@ -64,6 +65,6 @@ export const grammarToAutomaton = (grammar: Grammar): Automaton => {
   return {
     states,
     transitions,
-    isDeterministic: false, // A conversão geralmente resulta em um AFND
+    isDeterministic: false,
   };
 };

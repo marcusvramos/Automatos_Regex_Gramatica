@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Grammar, Production } from "../../types/grammar";
 import {
   Form,
@@ -9,6 +9,7 @@ import {
   Col,
   Badge,
   Modal,
+  Alert,
 } from "react-bootstrap";
 
 interface GrammarEditorProps {
@@ -28,57 +29,121 @@ const GrammarEditor: React.FC<GrammarEditorProps> = ({ onSubmit }) => {
     body: [],
   });
 
-  const [showModal, setShowModal] = useState<boolean>(false);
-  const [currentProductionIndex, setCurrentProductionIndex] = useState<
-    number | null
-  >(null);
+  const [productionBody, setProductionBody] = useState<string>("");
 
-  const handleAddProduction = () => {
-    if (production.head && production.body.length > 0) {
+  const [showModal, setShowModal] = useState<boolean>(false);
+  const [currentProductionIndex, setCurrentProductionIndex] = useState<number | null>(null);
+
+  const [error, setError] = useState<string | null>(null);
+
+  const isValidProduction = (head: string, body: string[]): boolean => {
+    const nonTerminalPattern = /^[A-Z]$/;
+    const terminalPattern = /^[a-z]$/;
+    const epsilon = "ε";
+
+    for (let productionBody of body) {
+      if (productionBody === epsilon) {
+        continue;
+      }
+      if (productionBody.length === 1) {
+        if (!terminalPattern.test(productionBody)) return false;
+      } else if (productionBody.length === 2) {
+        const [first, second] = productionBody;
+        if (!terminalPattern.test(first) || !nonTerminalPattern.test(second)) return false;
+      } else {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  useEffect(() => {
+    if (grammar.startSymbol && !grammar.nonTerminals.includes(grammar.startSymbol)) {
       setGrammar((prev) => ({
         ...prev,
-        productions: [...prev.productions, production],
-        nonTerminals: prev.nonTerminals.includes(production.head)
-          ? prev.nonTerminals
-          : [...prev.nonTerminals, production.head],
-        terminals: [
-          ...Array.from(
-            new Set([
-              ...prev.terminals,
-              ...production.body.filter((sym) => !/^[A-Z]$/.test(sym)),
-            ])
-          ),
-        ],
+        nonTerminals: [...prev.nonTerminals, grammar.startSymbol],
       }));
+    }
+    
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grammar.startSymbol]);
+
+  const handleAddProduction = () => {
+    setError(null);
+    if (production.head && productionBody.length > 0) {
+      const newBody = productionBody.split("|").map((sym) => sym.trim());
+
+      if (!isValidProduction(production.head, newBody)) {
+        setError(
+          "Produções inválidas para uma Gramática Regular. Cada produção deve ser do tipo A → a ou A → aB, ou ε para a produção vazia."
+        );
+        return;
+      }
+
+      setGrammar((prev) => {
+        const updatedProductions = [...prev.productions, { ...production, body: newBody }];
+        const updatedNonTerminals = Array.from(
+          new Set([
+            ...prev.nonTerminals,
+            production.head.toUpperCase(),
+            ...newBody
+              .filter((sym) => sym.length === 2)
+              .map((sym) => sym[1].toUpperCase()), // Extrair não-terminal de produções como aS
+          ])
+        );
+        const updatedTerminals = Array.from(
+          new Set([
+            ...prev.terminals,
+            ...newBody
+              .join("")
+              .split("")
+              .filter((sym) => /^[a-z]$/.test(sym)), // Apenas terminais
+          ])
+        );
+
+        return {
+          ...prev,
+          productions: updatedProductions,
+          nonTerminals: updatedNonTerminals,
+          terminals: updatedTerminals,
+        };
+      });
       setProduction({ head: "", body: [] });
+      setProductionBody("");
     } else {
-      alert("Cabeça e corpo da produção não podem estar vazios.");
+      setError("Cabeça e corpo da produção não podem estar vazios.");
     }
   };
 
   const handleRemoveProduction = (index: number) => {
-    setGrammar((prev) => ({
-      ...prev,
-      productions: prev.productions.filter((_, i) => i !== index),
-      // Atualizar não-terminais e terminais
-      nonTerminals: Array.from(
+    setGrammar((prev) => {
+      const updatedProductions = prev.productions.filter((_, i) => i !== index);
+      const updatedNonTerminals = Array.from(new Set(updatedProductions.map((p) => p.head)));
+      const updatedTerminals = Array.from(
         new Set(
-          prev.productions.filter((_, i) => i !== index).map((p) => p.head)
+          updatedProductions.flatMap((p) =>
+            p.body.flatMap((sym) => (/[a-z]/.test(sym) ? sym : []))
+          )
         )
-      ),
-      terminals: Array.from(
-        new Set(
-          prev.productions
-            .filter((_, i) => i !== index)
-            .flatMap((p) => p.body.filter((sym) => !/^[A-Z]$/.test(sym)))
-        )
-      ),
-    }));
+      );
+
+      if (prev.startSymbol && !updatedNonTerminals.includes(prev.startSymbol)) {
+        updatedNonTerminals.push(prev.startSymbol);
+      }
+
+      return {
+        ...prev,
+        productions: updatedProductions,
+        nonTerminals: updatedNonTerminals,
+        terminals: updatedTerminals,
+      };
+    });
   };
 
   const handleEditProduction = (index: number) => {
     const prod = grammar.productions[index];
     setProduction({ head: prod.head, body: [...prod.body] });
+    setProductionBody(prod.body.join(" | "));
     setCurrentProductionIndex(index);
     setShowModal(true);
   };
@@ -86,33 +151,72 @@ const GrammarEditor: React.FC<GrammarEditorProps> = ({ onSubmit }) => {
   const handleUpdateProduction = () => {
     if (currentProductionIndex === null) return;
 
-    const updatedProductions = grammar.productions.map((prod, index) =>
-      index === currentProductionIndex ? production : prod
-    );
+    const newProductionBody = productionBody.split("|").map((term) => term.trim());
 
-    setGrammar((prev) => ({
-      ...prev,
-      productions: updatedProductions,
-      nonTerminals: Array.from(new Set(updatedProductions.map((p) => p.head))),
-      terminals: Array.from(
-        new Set(
-          updatedProductions.flatMap((p) =>
-            p.body.filter((sym) => !/^[A-Z]$/.test(sym))
-          )
-        )
-      ),
-    }));
+    if (!isValidProduction(production.head, newProductionBody)) {
+      setError(
+        "Produções inválidas para uma Gramática Regular. Cada produção deve ser do tipo A → a ou A → aB, ou ε para a produção vazia."
+      );
+      return;
+    }
+
+    setGrammar((prev) => {
+      const updatedProductions = prev.productions.map((prod, index) =>
+        index === currentProductionIndex ? { ...production, body: newProductionBody } : prod
+      );
+
+      const updatedNonTerminals = Array.from(
+        new Set([
+          ...updatedProductions.map((p) => p.head),
+          ...newProductionBody
+            .filter((sym) => sym.length === 2)
+            .map((sym) => sym[1].toUpperCase()),
+          prev.startSymbol,
+        ])
+      );
+
+      const updatedTerminals = Array.from(
+        new Set([
+          ...updatedProductions.flatMap((p) =>
+            p.body.flatMap((sym) => (/[a-z]/.test(sym) ? sym : []))
+          ),
+        ])
+      );
+
+      return {
+        ...prev,
+        productions: updatedProductions,
+        nonTerminals: updatedNonTerminals,
+        terminals: updatedTerminals,
+      };
+    });
 
     setProduction({ head: "", body: [] });
+    setProductionBody(""); // Resetar o valor do corpo após a atualização
     setCurrentProductionIndex(null);
     setShowModal(false);
+    setError(null);
   };
 
   const handleSubmitGrammar = () => {
+    setError(null); // Resetar mensagem de erro
     if (grammar.startSymbol && grammar.productions.length > 0) {
+      // Garantir que o símbolo inicial está incluído nos não-terminais
+      if (!grammar.nonTerminals.includes(grammar.startSymbol)) {
+        setError("O símbolo inicial deve estar incluído nos não-terminais.");
+        return;
+      }
+
+      // Verificação adicional para garantir que a gramática é regular
+      for (let prod of grammar.productions) {
+        if (!isValidProduction(prod.head, prod.body)) {
+          setError("A gramática contém produções inválidas para uma Gramática Regular.");
+          return;
+        }
+      }
       onSubmit(grammar);
     } else {
-      alert("Gramática deve ter símbolo inicial e pelo menos uma produção.");
+      setError("Gramática deve ter símbolo inicial e pelo menos uma produção.");
     }
   };
 
@@ -127,7 +231,7 @@ const GrammarEditor: React.FC<GrammarEditorProps> = ({ onSubmit }) => {
               type="text"
               value={grammar.startSymbol}
               onChange={(e) =>
-                setGrammar({ ...grammar, startSymbol: e.target.value })
+                setGrammar({ ...grammar, startSymbol: e.target.value.toUpperCase() })
               }
               placeholder="Ex: S"
               required
@@ -142,7 +246,7 @@ const GrammarEditor: React.FC<GrammarEditorProps> = ({ onSubmit }) => {
                   type="text"
                   value={production.head}
                   onChange={(e) =>
-                    setProduction({ ...production, head: e.target.value })
+                    setProduction({ ...production, head: e.target.value.toUpperCase() })
                   }
                   placeholder="Ex: S"
                 />
@@ -153,27 +257,27 @@ const GrammarEditor: React.FC<GrammarEditorProps> = ({ onSubmit }) => {
                 <Form.Label>Corpo:</Form.Label>
                 <Form.Control
                   type="text"
-                  value={production.body.join(" ")}
-                  onChange={(e) =>
-                    setProduction({
-                      ...production,
-                      body: e.target.value.split(" "),
-                    })
-                  }
-                  placeholder="Ex: a S | b"
+                  value={productionBody}
+                  onChange={(e) => setProductionBody(e.target.value)}
+                  placeholder="Ex: aS | ε"
                 />
               </Form.Group>
             </Col>
-            <Col md={2}>
+            <Col>
               <Button
                 variant="primary"
                 onClick={handleAddProduction}
-                className="mt-1"
+                className="mb-3"
               >
                 Adicionar Produção
               </Button>
             </Col>
           </Row>
+          {error && (
+            <Alert variant="danger">
+              {error}
+            </Alert>
+          )}
           <ListGroup>
             {grammar.productions.map((prod, index) => (
               <ListGroup.Item
@@ -184,7 +288,9 @@ const GrammarEditor: React.FC<GrammarEditorProps> = ({ onSubmit }) => {
                   <strong>{prod.head}</strong> →{" "}
                   {prod.body.map((sym, i) => (
                     <span key={i} className="me-1">
-                      {/^[A-Z]$/.test(sym) ? (
+                      {sym === "ε" ? (
+                        <Badge bg="secondary">{sym}</Badge>
+                      ) : /^[A-Z]$/.test(sym) ? (
                         <Badge bg="info">{sym}</Badge>
                       ) : (
                         <Badge bg="warning" text="dark">
@@ -237,7 +343,7 @@ const GrammarEditor: React.FC<GrammarEditorProps> = ({ onSubmit }) => {
                 type="text"
                 value={production.head}
                 onChange={(e) =>
-                  setProduction({ ...production, head: e.target.value })
+                  setProduction({ ...production, head: e.target.value.toUpperCase() })
                 }
                 placeholder="Ex: S"
               />
@@ -246,14 +352,9 @@ const GrammarEditor: React.FC<GrammarEditorProps> = ({ onSubmit }) => {
               <Form.Label>Corpo:</Form.Label>
               <Form.Control
                 type="text"
-                value={production.body.join(" ")}
-                onChange={(e) =>
-                  setProduction({
-                    ...production,
-                    body: e.target.value.split(" "),
-                  })
-                }
-                placeholder="Ex: a S | b"
+                value={productionBody}
+                onChange={(e) => setProductionBody(e.target.value)}
+                placeholder="Ex: aS | b | ε"
               />
             </Form.Group>
           </Form>
