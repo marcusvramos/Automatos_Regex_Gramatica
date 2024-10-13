@@ -7,6 +7,7 @@ import ReactFlow, {
   Node,
   useNodesState,
   useEdgesState,
+  MarkerType,
 } from "react-flow-renderer";
 import { Automaton, State, Transition } from "../../types/automaton";
 import {
@@ -96,7 +97,7 @@ const AutomatonEditor: React.FC<AutomatonEditorProps> = ({
       };
     });
     setNodes(updatedNodes);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStates, automaton.states]);
 
   // Atualizar o autômato quando isDeterministic mudar
@@ -157,7 +158,9 @@ const AutomatonEditor: React.FC<AutomatonEditorProps> = ({
         // Aresta já existe, atualizar o rótulo
         const existingEdge = updatedEdges[existingEdgeIndex];
         const existingSymbols = existingEdge.label
-          ? typeof existingEdge.label === "string" ? existingEdge.label.split(",") : []
+          ? typeof existingEdge.label === "string"
+            ? existingEdge.label.split(",")
+            : []
           : [];
         const combinedSymbols = Array.from(
           new Set([...existingSymbols, ...newSymbols])
@@ -195,6 +198,7 @@ const AutomatonEditor: React.FC<AutomatonEditorProps> = ({
           labelBgPadding: [8, 4] as [number, number],
           labelBgBorderRadius: 4,
           labelBgStyle: { fill: "#fff", opacity: 0.7 },
+          markerEnd: MarkerType.Arrow,
         });
       }
 
@@ -470,9 +474,7 @@ const AutomatonEditor: React.FC<AutomatonEditorProps> = ({
                       className="ms-2"
                       onClick={() => toggleStartState(state.id)}
                     >
-                      {state.isStart
-                        ? "Desmarcar Inicial"
-                        : "Marcar Inicial"}
+                      {state.isStart ? "Desmarcar Inicial" : "Marcar Inicial"}
                     </Button>
                   </div>
                 </ListGroup.Item>
@@ -548,6 +550,21 @@ const AutomatonEditor: React.FC<AutomatonEditorProps> = ({
                 fitView
                 style={{ width: "100%", height: "100%" }}
               >
+                <svg style={{ position: "absolute", width: 0, height: 0 }}>
+                  <defs>
+                    <marker
+                      id="arrow"
+                      viewBox="0 0 10 10"
+                      refX={15}
+                      refY={5}
+                      markerWidth={6}
+                      markerHeight={6}
+                      orient="auto"
+                    >
+                      <polygon points="0,0 10,5 0,10" fill="#000" />
+                    </marker>
+                  </defs>
+                </svg>
                 <Background />
                 <Controls />
               </ReactFlow>

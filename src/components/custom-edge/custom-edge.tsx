@@ -15,7 +15,7 @@ const CustomEdge: React.FC<EdgeProps> = ({
   data,
 }) => {
   // Adjust curvature here
-  const curvature = data?.curvature || 0; // default curvature is 0 (straight line)
+  const curvature = data?.curvature || 0.5; // default curvature is 0 (straight line)
 
   // Calculate the control points for the Bezier curve
   const deltaX = targetX - sourceX;
