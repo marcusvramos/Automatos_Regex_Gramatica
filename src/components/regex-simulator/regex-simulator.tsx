@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import XRegExp from 'xregexp';
 import { Form, Button, Alert } from 'react-bootstrap';
 
 interface RegexSimulatorProps {
@@ -12,7 +11,7 @@ const RegexSimulator: React.FC<RegexSimulatorProps> = ({ regex }) => {
   const [error, setError] = useState<string | null>(null);
 
   const validateRegex = (regex: string): boolean => {
-    const allowedChars = /^[0-9a-zA-Z\\+\\|\\*\\.\\(\\)]*$/;
+    const allowedChars = /^[0-9a-zA-Z\\+\\|\\*\\.\\(\\)\\^\\$]*$/;
     return allowedChars.test(regex);
   };
 
@@ -24,8 +23,9 @@ const RegexSimulator: React.FC<RegexSimulatorProps> = ({ regex }) => {
     }
 
     try {
-      const pattern = XRegExp(`^${regex}$`);
-      setIsMatch(XRegExp.test(input, pattern));
+      // Encapsula a regex entre parênteses e adiciona ^ e $ para correspondência completa
+      const pattern = new RegExp(`^(${regex})$`);
+      setIsMatch(pattern.test(input));
       setError(null);
     } catch (error) {
       setError('Expressão Regular inválida. Verifique a sintaxe.');

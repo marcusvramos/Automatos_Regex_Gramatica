@@ -1,0 +1,37 @@
+Teste 1: Reconhecimento de números binários múltiplos de 3
+Expressão Regular: (0|(1(01*0)*1))*
+
+Descrição:
+
+Esta expressão regular reconhece números binários que são múltiplos de 3.
+Entradas de Teste:
+
+Entrada: 110 (6 em decimal) - Resultado Esperado: Corresponde (Aceita)
+Entrada: 111 (7 em decimal) - Resultado Esperado: Não corresponde (Rejeita)
+Entrada: 0 - Resultado Esperado: Corresponde (Aceita)
+
+Teste 2: Sequências com números de 'a's múltiplos de 2
+Expressão Regular: (aa)*
+
+Descrição:
+
+Reconhece cadeias que contêm um número par de 'a's.
+Útil para testar a correta interpretação do operador * e agrupamento.
+Entradas de Teste:
+
+Entrada: aa - Resultado Esperado: Corresponde
+Entrada: aaaa - Resultado Esperado: Corresponde
+Entrada: aaa - Resultado Esperado: Não corresponde
+
+Teste 3: Cadeias que começam e terminam com o mesmo símbolo (a ou b)
+Expressão Regular: (a(a|b)*a)|(b(a|b)*b)
+
+Descrição:
+
+Reconhece cadeias que começam e terminam com o mesmo símbolo.
+Testa a capacidade do simulador em lidar com agrupamentos e alternativas.
+Entradas de Teste:
+
+Entrada: aba - Resultado Esperado: Corresponde
+Entrada: abb - Resultado Esperado: Não corresponde
+Entrada: babb - Resultado Esperado: Corresponde

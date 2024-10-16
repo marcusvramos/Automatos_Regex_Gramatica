@@ -1,0 +1,70 @@
+3. Testes para Gramáticas Regulares
+Teste 1: Gramática que gera cadeias que começam com 'a' e terminam com 'b'
+
+Símbolo Inicial: S
+Produções:
+S → aA
+A → aA | b
+
+Símbolo Inicial: S
+
+Produção 1:
+Cabeça: S
+Corpo: aA
+
+Produção 2:
+Cabeça: A
+Corpo: aA | b
+
+Entrada: ab - Resultado Esperado: Aceita
+Entrada: aaab - Resultado Esperado: Aceita
+Entrada: aa - Resultado Esperado: Rejeita
+
+
+
+Teste 2: Gramática que gera a linguagem (ab)*
+
+Símbolo Inicial: S
+Produções:
+S → aA | ε
+A → bS
+
+Símbolo Inicial: S
+
+Produção 1:
+Cabeça: S
+Corpo: a A | ε
+
+Produção 2:
+Cabeça: A
+Corpo: b S
+
+Entrada: ab - Resultado Esperado: Aceita
+Entrada: abab - Resultado Esperado: Aceita
+Entrada: aba - Resultado Esperado: Rejeita
+
+
+
+Teste 3: Gramática que gera cadeias com número par de 'a's
+
+Símbolo Inicial: S
+
+Produções:
+S → aA | ε
+A → aS
+
+Símbolo Inicial: S
+
+
+Produção 1:
+Cabeça: S
+Corpo: a A | ε
+
+Produção 2:
+Cabeça: A
+Corpo: a S
+
+Entrada: aa - Resultado Esperado: Aceita
+Entrada: aaaa - Resultado Esperado: Aceita
+Entrada: aaa - Resultado Esperado: Rejeita
+

@@ -1,0 +1,46 @@
+Teste 1: Autômato Finito Determinístico (AFD) que reconhece cadeias terminadas em 'ab'
+Descrição do Autômato:
+
+Estados: q0 (inicial), q1, q2 (final)
+Alfabeto: {a, b}
+Transições:
+De q1:
+Com a, vai para q2
+Com b, permanece em q1
+De q2:
+Com a, permanece em q2
+Com b, vai para q3
+De q3:
+Com a ou b, permanece em q3
+Estado Final: q3
+
+
+Entrada: ab - Resultado Esperado: Aceita
+Entrada: aab - Resultado Esperado: Aceita
+Entrada: aaa - Resultado Esperado: Rejeita
+
+
+
+
+Teste 2: Autômato Finito Não Determinístico (AFND) que reconhece cadeias que contêm 'aba' como substring
+Descrição do Autômato:
+
+Estados: q1 (inicial), q2, q3, q4 (final)
+Alfabeto: {a, b}
+Transições:
+De q1:
+Com a, vai para q1 e q2 (não determinismo)
+Com b, permanece em q1
+De q2:
+Com b, vai para q3
+De q3:
+Com a, vai para q4
+De q4:
+Com a ou b, permanece em q4
+Estado Final: q4
+
+Entrada: cba - Resultado Esperado: Rejeita
+Entrada: abab - Resultado Esperado: Aceita
+Entrada: aaa - Resultado Esperado: Rejeita
+
+
